@@ -15,8 +15,11 @@ const CENTER: Vector2D<f32> = Vector2D::new(WINDOW_WIDTH as f32 / 2.0, WINDOW_HE
 
 const ANGLE_SPEED: f32 = 0.01;
 
-const ZOOM_SPEED: f32 = 0.03;
-const ZOOM_RADIUS: f32 = 0.5;
+const ZOOM_SPEED: f32 = 0.015;
+const ZOOM_MIN: f32 = 0.1;
+const ZOOM_MAX: f32 = 1.2;
+const ZOOM_ZERO: f32 = (ZOOM_MAX + ZOOM_MIN) / 2.0;
+const ZOOM_RADIUS: f32 = ZOOM_ZERO - ZOOM_MIN;
 
 const FLY_SPEED: f32 = 0.007;
 const FLY_RADIUS: f32 = 100.0;
@@ -42,7 +45,7 @@ fn update_buffer(buffer: &mut [u32], image: &Bitmap, angle: f32, zoom: f32, offs
             point *= zoom;
             point += image_origin;
 
-            let color = image.get_pixel(point.x as i32, point.y as i32);
+            let color = image.get_pixel_wrapped(point.x as i32, point.y as i32);
             buffer[x + y * WINDOW_WIDTH] = color;
         }
     }
@@ -88,7 +91,7 @@ fn main() -> anyhow::Result<()> {
 
         zoom_phase += ZOOM_SPEED;
         wrap_angle(&mut zoom_phase);
-        let zoom = zoom_phase.sin() * ZOOM_RADIUS + 1.0;
+        let zoom = zoom_phase.sin() * ZOOM_RADIUS + ZOOM_ZERO;
 
         fly_phase += FLY_SPEED;
         wrap_angle(&mut fly_phase);
