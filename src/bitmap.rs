@@ -8,6 +8,17 @@ pub struct Bitmap {
     height: usize,
 }
 
+fn mirror_wrap(mut val: i32, max_val: usize) -> i32 {
+    let max = max_val as i32;
+
+    if val < 0 {
+        val = -val - 1;
+    }
+
+    let rem = val % (2 * max);
+    if rem < max { rem } else { (2 * max) - 1 - rem }
+}
+
 impl Bitmap {
     pub fn from_file<P: AsRef<Path>>(file: P) -> anyhow::Result<Bitmap> {
         let image = ImageReader::open(file)?.decode()?.to_rgb8();
@@ -31,5 +42,11 @@ impl Bitmap {
         } else {
             0
         }
+    }
+
+    pub fn get_pixel_wrapped(&self, x: i32, y: i32) -> u32 {
+        let wx = mirror_wrap(x, self.width);
+        let wy = mirror_wrap(y, self.height);
+        self.data[wx as usize + wy as usize * self.width]
     }
 }

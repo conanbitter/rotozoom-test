@@ -11,7 +11,7 @@ const WINDOW_HEIGHT: usize = 600;
 fn update_buffer(buffer: &mut [u32], image: &Bitmap) {
     for y in 0..WINDOW_HEIGHT {
         for x in 0..WINDOW_WIDTH {
-            let color = image.get_pixel(x as i32, y as i32);
+            let color = image.get_pixel_wrapped(x as i32, y as i32);
             buffer[x + y * WINDOW_WIDTH] = color;
         }
     }
