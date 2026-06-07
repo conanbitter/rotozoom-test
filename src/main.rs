@@ -106,14 +106,18 @@ fn main() -> anyhow::Result<()> {
         window_width,
         window_height,
         WindowOptions {
-            borderless: true,
-            title: false,
+            borderless: args.fullscreen,
+            title: !args.fullscreen,
             resize: false,
             scale: Scale::X1,
-            scale_mode: minifb::ScaleMode::Center,
+            scale_mode: if args.fullscreen {
+                minifb::ScaleMode::Stretch
+            } else {
+                minifb::ScaleMode::Center
+            },
             topmost: false,
             transparency: false,
-            none: false,
+            none: args.fullscreen,
         },
     )?;
 
@@ -123,6 +127,8 @@ fn main() -> anyhow::Result<()> {
         let new_pos_x = (display_info.width as isize - args.width as isize) / 2;
         let new_pos_y = (display_info.height as isize - args.height as isize) / 2;
         window.set_position(new_pos_x, new_pos_y);
+    } else {
+        window.set_cursor_visibility(false);
     }
 
     window.set_target_fps(args.fps);
