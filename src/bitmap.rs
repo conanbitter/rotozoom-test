@@ -4,8 +4,8 @@ use image::ImageReader;
 
 pub struct Bitmap {
     data: Vec<u32>,
-    width: usize,
-    height: usize,
+    pub width: usize,
+    pub height: usize,
 }
 
 fn mirror_wrap(mut val: i32, max_val: usize) -> i32 {

@@ -1,5 +1,8 @@
+use std::f32::consts::PI;
+
 use display_info::DisplayInfo;
 use minifb::{Scale, Window, WindowOptions};
+use vector2d::Vector2D;
 
 use crate::bitmap::Bitmap;
 
@@ -8,12 +11,46 @@ mod bitmap;
 const WINDOW_WIDTH: usize = 800;
 const WINDOW_HEIGHT: usize = 600;
 
-fn update_buffer(buffer: &mut [u32], image: &Bitmap) {
+const CENTER: Vector2D<f32> = Vector2D::new(WINDOW_WIDTH as f32 / 2.0, WINDOW_HEIGHT as f32 / 2.0);
+
+const ANGLE_SPEED: f32 = 0.01;
+
+const ZOOM_SPEED: f32 = 0.03;
+const ZOOM_RADIUS: f32 = 0.5;
+
+const FLY_SPEED: f32 = 0.007;
+const FLY_RADIUS: f32 = 100.0;
+
+fn rotate_vector(vec: Vector2D<f32>, sin: f32, cos: f32) -> Vector2D<f32> {
+    Vector2D {
+        x: vec.x * cos + vec.y * sin,
+        y: -vec.x * sin + vec.y * cos,
+    }
+}
+
+fn update_buffer(buffer: &mut [u32], image: &Bitmap, angle: f32, zoom: f32, offset: Vector2D<f32>) {
+    let image_origin = Vector2D::new(image.width as f32 / 2.0, image.height as f32 / 2.0);
+    let sin = angle.sin();
+    let cos = angle.cos();
+
     for y in 0..WINDOW_HEIGHT {
         for x in 0..WINDOW_WIDTH {
-            let color = image.get_pixel_wrapped(x as i32, y as i32);
+            let mut point = Vector2D::new(x as f32, y as f32);
+
+            point -= CENTER + offset;
+            point = rotate_vector(point, sin, cos);
+            point *= zoom;
+            point += image_origin;
+
+            let color = image.get_pixel(point.x as i32, point.y as i32);
             buffer[x + y * WINDOW_WIDTH] = color;
         }
+    }
+}
+
+fn wrap_angle(val: &mut f32) {
+    if *val > PI * 2.0 {
+        *val -= PI * 2.0;
     }
 }
 
@@ -40,9 +77,24 @@ fn main() -> anyhow::Result<()> {
 
     let mut buffer: Vec<u32> = vec![0; WINDOW_WIDTH * WINDOW_HEIGHT];
     let bitmap = Bitmap::from_file("lena.png")?;
-    update_buffer(&mut buffer, &bitmap);
+
+    let mut angle = 0.0f32;
+    let mut zoom_phase = 0.0f32;
+    let mut fly_phase = 0.0f32;
 
     while window.is_open() && !window.is_key_down(minifb::Key::Escape) {
+        angle += ANGLE_SPEED;
+        wrap_angle(&mut angle);
+
+        zoom_phase += ZOOM_SPEED;
+        wrap_angle(&mut zoom_phase);
+        let zoom = zoom_phase.sin() * ZOOM_RADIUS + 1.0;
+
+        fly_phase += FLY_SPEED;
+        wrap_angle(&mut fly_phase);
+        let fly = Vector2D::new(fly_phase.sin() * FLY_RADIUS, fly_phase.cos() * FLY_RADIUS);
+
+        update_buffer(&mut buffer, &bitmap, angle, zoom, fly);
         window.update_with_buffer(&buffer, WINDOW_WIDTH, WINDOW_HEIGHT)?;
     }
 
