@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::{f32::consts::PI, time::Instant};
 
 use display_info::DisplayInfo;
@@ -24,7 +26,7 @@ const ZOOM_RADIUS: f32 = ZOOM_ZERO - ZOOM_MIN;
 const FLY_SPEED: f32 = 0.007;
 const FLY_RADIUS: f32 = 100.0;
 
-const DELTAS_COUNT: usize = 20;
+const DELTAS_COUNT: usize = 50;
 
 fn rotate_vector(vec: Vector2D<f32>, sin: f32, cos: f32) -> Vector2D<f32> {
     Vector2D {
