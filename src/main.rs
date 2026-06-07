@@ -7,9 +7,10 @@ use display_info::DisplayInfo;
 use minifb::{Scale, Window, WindowOptions};
 use vector2d::Vector2D;
 
-use crate::bitmap::Bitmap;
+use crate::{bitmap::Bitmap, fpscounter::FPSCounter};
 
 mod bitmap;
+mod fpscounter;
 
 const ANGLE_SPEED: f32 = 0.01;
 
@@ -135,6 +136,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut buffer: Vec<u32> = vec![0; args.width * args.height];
     let bitmap = Bitmap::from_file("test_image.png")?;
+    let counter = FPSCounter::new()?;
 
     let mut angle = 0.0f32;
     let mut zoom_phase = 0.0f32;
@@ -170,7 +172,8 @@ fn main() -> anyhow::Result<()> {
         let avg_delta = deltas.iter().sum::<f64>() / (DELTAS_COUNT as f64);
         let fps = if avg_delta > 0.0 { (1.0 / avg_delta) as i32 } else { 0 };
 
-        window.set_title(&format!("RotoZoom   FPS: {}", fps));
+        counter.draw_fps(fps, 0, 0, &mut buffer, args.width);
+        //window.set_title(&format!("RotoZoom   FPS: {}", fps));
         window.update_with_buffer(&buffer, args.width, args.height)?;
     }
 
