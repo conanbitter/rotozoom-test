@@ -2,6 +2,7 @@
 
 use std::{f32::consts::PI, time::Instant};
 
+use clap::Parser;
 use display_info::DisplayInfo;
 use minifb::{Scale, Window, WindowOptions};
 use vector2d::Vector2D;
@@ -9,11 +10,6 @@ use vector2d::Vector2D;
 use crate::bitmap::Bitmap;
 
 mod bitmap;
-
-const WINDOW_WIDTH: usize = 800;
-const WINDOW_HEIGHT: usize = 600;
-
-const CENTER: Vector2D<f32> = Vector2D::new(WINDOW_WIDTH as f32 / 2.0, WINDOW_HEIGHT as f32 / 2.0);
 
 const ANGLE_SPEED: f32 = 0.01;
 
@@ -35,22 +31,32 @@ fn rotate_vector(vec: Vector2D<f32>, sin: f32, cos: f32) -> Vector2D<f32> {
     }
 }
 
-fn update_buffer(buffer: &mut [u32], image: &Bitmap, angle: f32, zoom: f32, offset: Vector2D<f32>) {
+fn update_buffer(
+    buffer: &mut [u32],
+    width: usize,
+    height: usize,
+    center: Vector2D<f32>,
+    image: &Bitmap,
+    angle: f32,
+    zoom: f32,
+    offset: Vector2D<f32>,
+) {
     let image_origin = Vector2D::new(image.width as f32 / 2.0, image.height as f32 / 2.0);
     let sin = angle.sin();
     let cos = angle.cos();
+    let total_offset = center + offset;
 
-    for y in 0..WINDOW_HEIGHT {
-        for x in 0..WINDOW_WIDTH {
+    for y in 0..height {
+        for x in 0..width {
             let mut point = Vector2D::new(x as f32, y as f32);
 
-            point -= CENTER + offset;
+            point -= total_offset;
             point = rotate_vector(point, sin, cos);
             point *= zoom;
             point += image_origin;
 
             let color = image.get_pixel_wrapped(point.x as i32, point.y as i32);
-            buffer[x + y * WINDOW_WIDTH] = color;
+            buffer[x + y * width] = color;
         }
     }
 }
@@ -61,29 +67,68 @@ fn wrap_angle(val: &mut f32) {
     }
 }
 
+#[derive(clap::Parser, Debug)]
+#[command(about, long_about = None, disable_help_flag = true)]
+struct Args {
+    #[arg(short, long, default_value_t = 800)]
+    width: usize,
+
+    #[arg(short, long, default_value_t = 600)]
+    height: usize,
+
+    #[arg(long, default_value_t = 0)]
+    fps: usize,
+
+    #[arg(short, long, default_value_t = false)]
+    fullscreen: bool,
+}
+
 fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+    let center = Vector2D::new(args.width as f32 / 2.0, args.height as f32 / 2.0);
+
+    let (window_width, window_height) = if args.fullscreen {
+        let mut display_info = DisplayInfo::from_point(0, 0)?;
+        let display_info_list = DisplayInfo::all()?;
+        for info in display_info_list {
+            if info.is_primary {
+                display_info = info;
+                break;
+            }
+        }
+        (display_info.width as usize, display_info.height as usize)
+    } else {
+        (args.width, args.height)
+    };
+
     let mut window = Window::new(
         "RotoZoom",
-        WINDOW_WIDTH,
-        WINDOW_HEIGHT,
+        window_width,
+        window_height,
         WindowOptions {
+            borderless: true,
+            title: false,
             resize: false,
             scale: Scale::X1,
             scale_mode: minifb::ScaleMode::Center,
-            ..WindowOptions::default()
+            topmost: false,
+            transparency: false,
+            none: false,
         },
     )?;
 
-    let (wx, wy) = window.get_position();
-    let display_info = DisplayInfo::from_point(wx as i32, wy as i32)?;
-    let new_pos_x = (display_info.width as isize - WINDOW_WIDTH as isize) / 2;
-    let new_pos_y = (display_info.height as isize - WINDOW_HEIGHT as isize) / 2;
-    window.set_position(new_pos_x, new_pos_y);
+    if !args.fullscreen {
+        let (wx, wy) = window.get_position();
+        let display_info = DisplayInfo::from_point(wx as i32, wy as i32)?;
+        let new_pos_x = (display_info.width as isize - args.width as isize) / 2;
+        let new_pos_y = (display_info.height as isize - args.height as isize) / 2;
+        window.set_position(new_pos_x, new_pos_y);
+    }
 
-    window.set_target_fps(60);
+    window.set_target_fps(args.fps);
 
-    let mut buffer: Vec<u32> = vec![0; WINDOW_WIDTH * WINDOW_HEIGHT];
-    let bitmap = Bitmap::from_file("lena.png")?;
+    let mut buffer: Vec<u32> = vec![0; args.width * args.height];
+    let bitmap = Bitmap::from_file("test_image.png")?;
 
     let mut angle = 0.0f32;
     let mut zoom_phase = 0.0f32;
@@ -105,7 +150,7 @@ fn main() -> anyhow::Result<()> {
         wrap_angle(&mut fly_phase);
         let fly = Vector2D::new(fly_phase.sin() * FLY_RADIUS, fly_phase.cos() * FLY_RADIUS);
 
-        update_buffer(&mut buffer, &bitmap, angle, zoom, fly);
+        update_buffer(&mut buffer, args.width, args.height, center, &bitmap, angle, zoom, fly);
 
         let current_time = Instant::now();
         let delta_time = current_time.duration_since(last_time);
@@ -119,8 +164,8 @@ fn main() -> anyhow::Result<()> {
         let avg_delta = deltas.iter().sum::<f64>() / (DELTAS_COUNT as f64);
         let fps = if avg_delta > 0.0 { (1.0 / avg_delta) as i32 } else { 0 };
 
-        window.set_title(&format!("RotoZoom FPS: {}", fps));
-        window.update_with_buffer(&buffer, WINDOW_WIDTH, WINDOW_HEIGHT)?;
+        window.set_title(&format!("RotoZoom   FPS: {}", fps));
+        window.update_with_buffer(&buffer, args.width, args.height)?;
     }
 
     Ok(())
